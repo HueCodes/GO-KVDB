@@ -1,4 +1,4 @@
-# KV-DB-GO - High-Performance In-Memory Key-Value Cache
+# Fast-Cache - High-Performance In-Memory Key-Value Cache
 
 A production-ready, highly optimized in-memory key-value cache for Go with zero GC pressure, exceptional concurrency, and LRU eviction.
 
@@ -11,7 +11,7 @@ A production-ready, highly optimized in-memory key-value cache for Go with zero 
 - **Atomic operations** - Lock-free expiration checks on reads
 - **No goroutine leaks** - Lazy expiration without spawning goroutines
 
-## 📊 Benchmark Results
+## Benchmark Results
 
 ```
 BenchmarkConcurrentReads-8      30621097    69.27 ns/op    23 B/op    2 allocs/op
@@ -19,7 +19,7 @@ BenchmarkConcurrentWrites-8     29599846   108.1 ns/op     63 B/op    4 allocs/o
 BenchmarkMixedWorkload-8        29907147    72.43 ns/op    25 B/op    3 allocs/op
 ```
 
-## ✨ Features
+## Features
 
 ### Core Functionality
 - ✅ **Thread-safe operations** - Safe concurrent access from multiple goroutines
@@ -123,7 +123,7 @@ fmt.Printf("Evictions: %d\n", stats.Evictions)
 fmt.Printf("Size: %d\n", stats.Size)
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ### Sharded Design
 ```
@@ -177,30 +177,30 @@ Run the example:
 go run examples/example.go
 ```
 
-## 🎯 Use Cases
+## Use Cases
 
 ### Perfect For:
-- ✅ Read-heavy workloads (80%+ reads)
-- ✅ High-concurrency applications
-- ✅ Session storage
-- ✅ API response caching
-- ✅ Configuration caching
-- ✅ Rate limiting counters
-- ✅ Temporary data storage
+-  Read-heavy workloads (80%+ reads)
+-  High-concurrency applications
+-  Session storage
+-  API response caching
+-  Configuration caching
+-  Rate limiting counters
+-  Temporary data storage
 
 ### Not Ideal For:
-- ❌ Persistent storage (in-memory only)
-- ❌ Distributed caching (single-node only)
-- ❌ Very large datasets (>10GB)
+-  Persistent storage (in-memory only)
+-  Distributed caching (single-node only)
+-  Very large datasets (>10GB)
 
-## 🔒 Thread Safety
+##  Thread Safety
 
 All operations are thread-safe:
 - `Set`, `Get`, `Delete` - Safe for concurrent use
 - `SetMulti`, `GetMulti` - Atomic per-key operations
 - `Size`, `Stats`, `Clear` - Safe snapshots
 
-## ⚙️ Configuration
+##  Configuration
 
 ### Tuning Shard Count
 Edit `NewKVCache` in `kvcache.go`:
@@ -221,7 +221,7 @@ ticker := time.NewTicker(time.Minute)  // Adjust frequency
 cache := NewKVCacheWithCapacity(5*time.Minute, 100)
 ```
 
-## 📝 API Reference
+##  API Reference
 
 ### Creation
 - `NewKVCache(defaultTTL time.Duration) *KVCache`
@@ -251,7 +251,7 @@ type CacheStats struct {
 func (s CacheStats) HitRate() float64
 ```
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions welcome! Areas for improvement:
 - SIMD-optimized hash functions
@@ -259,11 +259,11 @@ Contributions welcome! Areas for improvement:
 - Compression for large values
 - Persistence layer (optional)
 
-## 📄 License
+##  License
 
 MIT License - see LICENSE file for details
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 Optimizations inspired by:
 - Groupcache (golang/groupcache)
