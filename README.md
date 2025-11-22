@@ -2,8 +2,7 @@
 
 A production-ready, highly optimized in-memory key-value cache for Go with zero GC pressure, exceptional concurrency, and LRU eviction.
 
-## 🚀 Performance Characteristics
-
+## Performance 
 - **~69ns per concurrent read** - Optimized for read-heavy workloads
 - **~108ns per concurrent write** - Fast writes with sharded architecture
 - **Zero GC pressure** - sync.Pool recycling for all allocations
@@ -20,30 +19,28 @@ BenchmarkMixedWorkload-8        29907147    72.43 ns/op    25 B/op    3 allocs/o
 ```
 
 ## Features
-
-### Core Functionality
-- ✅ **Thread-safe operations** - Safe concurrent access from multiple goroutines
-- ✅ **TTL support** - Per-key and default expiration times
-- ✅ **Lazy expiration** - Expired entries removed on access or during cleanup
-- ✅ **LRU eviction** - Configurable capacity limits with automatic eviction
-- ✅ **Batch operations** - `SetMulti` and `GetMulti` for efficiency
-- ✅ **Performance metrics** - Track hits, misses, evictions, and hit rate
+- **Thread-safe operations** - Safe concurrent access from multiple goroutines
+- **TTL support** - Per-key and default expiration times
+- **Lazy expiration** - Expired entries removed on access or during cleanup
+- **LRU eviction** - Configurable capacity limits with automatic eviction
+- **Batch operations** - `SetMulti` and `GetMulti` for efficiency
+- **Performance metrics** - Track hits, misses, evictions, and hit rate
 
 ### Optimizations
-- ✅ **Sharded architecture** - 256 shards reduce lock contention by 16x
-- ✅ **Pointer-based storage** - Avoid value copies, reduce memory pressure
-- ✅ **sync.Pool recycling** - Reuse CacheEntry and hash objects
-- ✅ **Atomic operations** - Fast expiration checks without locks
-- ✅ **Read-optimized cleanup** - Non-blocking cleanup with minimal write locks
-- ✅ **Pooled hash functions** - Zero allocations for key hashing
+- **Sharded architecture** - 256 shards reduce lock contention by 16x
+- **Pointer-based storage** - Avoid value copies, reduce memory pressure
+- **sync.Pool recycling** - Reuse CacheEntry and hash objects
+- **Atomic operations** - Fast expiration checks without locks
+- **Read-optimized cleanup** - Non-blocking cleanup with minimal write locks
+- **Pooled hash functions** - Zero allocations for key hashing
 
-## 📦 Installation
+## Installation
 
 ```bash
 go get github.com/yourusername/kv-db-go
 ```
 
-## 🔧 Usage
+## Usage
 
 ### Basic Example
 
@@ -149,18 +146,8 @@ Each shard is independent with its own lock, allowing concurrent operations on d
 - **Background cleanup**: Periodic scan (every minute) removes expired entries
 - **No goroutine spawning**: Previous `go c.Delete(key)` pattern removed (was causing leaks)
 
-## 📈 Optimization Summary
 
-| Feature | Before | After | Improvement |
-|---------|--------|-------|-------------|
-| Shards | 16 | 256 | 16x less contention |
-| GC Allocations | ~200 B/op | ~51 B/op | 75% reduction |
-| Read Latency | ~150 ns | ~69 ns | 2.2x faster |
-| Write Latency | ~500 ns | ~108 ns | 4.6x faster |
-| Expiration Check | Lock required | Atomic (lock-free) | Zero contention |
-| Cleanup Blocking | Full lock | Read lock + batch | Non-blocking |
-
-## 🧪 Testing
+## Testing
 
 Run the test suite:
 ```bash
@@ -177,21 +164,6 @@ Run the example:
 go run examples/example.go
 ```
 
-## Use Cases
-
-### Perfect For:
--  Read-heavy workloads (80%+ reads)
--  High-concurrency applications
--  Session storage
--  API response caching
--  Configuration caching
--  Rate limiting counters
--  Temporary data storage
-
-### Not Ideal For:
--  Persistent storage (in-memory only)
--  Distributed caching (single-node only)
--  Very large datasets (>10GB)
 
 ##  Thread Safety
 
