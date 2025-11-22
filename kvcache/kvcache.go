@@ -3,6 +3,7 @@ package kvcache
 import (
 	"hash"
 	"hash/fnv"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +24,10 @@ type KVCache struct {
 	maxCapacity int // Max entries per shard, 0 = unlimited
 	entryPool   sync.Pool
 	hashPool    sync.Pool
+
+	// Shutdown coordination
+	done chan struct{}
+	wg   sync.WaitGroup
 
 	// Metrics
 	hits      atomic.Uint64
@@ -55,6 +60,7 @@ func NewKVCacheWithCapacity(defaultTTL time.Duration, maxCapacityPerShard int) *
 		numShards:   numShards,
 		ttl:         defaultTTL,
 		maxCapacity: maxCapacityPerShard,
+		done:        make(chan struct{}),
 		entryPool: sync.Pool{
 			New: func() interface{} {
 				return &CacheEntry{}
@@ -67,6 +73,7 @@ func NewKVCacheWithCapacity(defaultTTL time.Duration, maxCapacityPerShard int) *
 		},
 	}
 	// Start cleanup routine
+	cache.wg.Add(1)
 	go cache.cleanup()
 	return cache
 }
@@ -131,24 +138,29 @@ func (c *KVCache) Get(key string) (interface{}, bool) {
 	now := time.Now().UnixNano()
 
 	if expiration > 0 && now > expiration {
-		// Entry expired - upgrade to write lock for lazy deletion
+		// Entry expired - need write lock for deletion
 		shard.mutex.RUnlock()
 		shard.mutex.Lock()
-		// Double-check after acquiring write lock
-		if entry, exists := shard.store[key]; exists {
-			exp := atomic.LoadInt64(&entry.Expiration)
-			if exp > 0 && time.Now().UnixNano() > exp {
+
+		// Re-fetch entry after lock upgrade to avoid use-after-free
+		freshEntry, stillExists := shard.store[key]
+		if stillExists {
+			freshExp := atomic.LoadInt64(&freshEntry.Expiration)
+			freshNow := time.Now().UnixNano()
+			if freshExp > 0 && freshNow > freshExp {
+				// Still expired after double-check - delete it
 				delete(shard.store, key)
 				shard.size--
-				c.entryPool.Put(entry)
+				c.entryPool.Put(freshEntry)
 			}
 		}
 		shard.mutex.Unlock()
 		c.misses.Add(1)
-		return nil, false
+		return nil, false // Early return - don't access outer 'entry'
 	}
 
-	// Update last access time for LRU (atomic, no lock needed)
+	// Update last access time for LRU (atomic)
+	// Safe to access 'entry' here because we hold read lock and entry not expired
 	atomic.StoreInt64(&entry.lastAccess, now)
 	value := entry.Value
 	shard.mutex.RUnlock()
@@ -170,22 +182,31 @@ func (c *KVCache) Delete(key string) {
 	}
 }
 
-// evictOldest removes the least recently used entry from a shard
-// Must be called with shard.mutex held
+// evictOldest removes the least recently used entry from a shard using random sampling.
+// Uses O(1) approximation instead of O(n) full scan for better performance.
+// Must be called with shard.mutex held.
 func (c *KVCache) evictOldest(s *shard) {
+	const sampleSize = 5
 	var oldestKey string
-	var oldestTime int64 = 1<<63 - 1 // Max int64
+	var oldestTime int64 = math.MaxInt64
 
+	sampled := 0
 	for key, entry := range s.store {
+		if sampled >= sampleSize {
+			break
+		}
+
 		lastAccess := atomic.LoadInt64(&entry.lastAccess)
 		if lastAccess < oldestTime {
 			oldestTime = lastAccess
 			oldestKey = key
 		}
+		sampled++
 	}
 
 	if oldestKey != "" {
-		if entry := s.store[oldestKey]; entry != nil {
+		entry, exists := s.store[oldestKey]
+		if exists {
 			delete(s.store, oldestKey)
 			s.size--
 			c.entryPool.Put(entry)
@@ -194,43 +215,59 @@ func (c *KVCache) evictOldest(s *shard) {
 	}
 }
 
+// Close stops the cleanup goroutine and releases resources.
+// After calling Close, the cache should not be used.
+func (c *KVCache) Close() error {
+	close(c.done)
+	c.wg.Wait()
+	return nil
+}
+
 // cleanup periodically removes expired entries with minimal blocking
 func (c *KVCache) cleanup() {
+	defer c.wg.Done()
+
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		now := time.Now().UnixNano()
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now().UnixNano()
 
-		for _, shard := range c.shards {
-			// Collect expired keys with read lock first
-			shard.mutex.RLock()
-			expiredKeys := make([]string, 0, 16)
+			for _, shard := range c.shards {
+				// Collect expired keys with read lock first
+				shard.mutex.RLock()
+				expiredKeys := make([]string, 0, 16)
 
-			for key, entry := range shard.store {
-				expiration := atomic.LoadInt64(&entry.Expiration)
-				if expiration > 0 && now > expiration {
-					expiredKeys = append(expiredKeys, key)
-				}
-			}
-			shard.mutex.RUnlock()
-
-			// Delete expired entries with write lock (if any found)
-			if len(expiredKeys) > 0 {
-				shard.mutex.Lock()
-				for _, key := range expiredKeys {
-					// Double-check expiration after acquiring lock
-					if entry, exists := shard.store[key]; exists {
-						exp := atomic.LoadInt64(&entry.Expiration)
-						if exp > 0 && now > exp {
-							delete(shard.store, key)
-							shard.size--
-							c.entryPool.Put(entry)
-						}
+				for key, entry := range shard.store {
+					expiration := atomic.LoadInt64(&entry.Expiration)
+					if expiration > 0 && now > expiration {
+						expiredKeys = append(expiredKeys, key)
 					}
 				}
-				shard.mutex.Unlock()
+				shard.mutex.RUnlock()
+
+				// Delete expired entries with write lock (if any found)
+				if len(expiredKeys) > 0 {
+					shard.mutex.Lock()
+					for _, key := range expiredKeys {
+						// Double-check expiration after acquiring lock
+						if entry, exists := shard.store[key]; exists {
+							exp := atomic.LoadInt64(&entry.Expiration)
+							if exp > 0 && now > exp {
+								delete(shard.store, key)
+								shard.size--
+								c.entryPool.Put(entry)
+							}
+						}
+					}
+					shard.mutex.Unlock()
+				}
 			}
+
+		case <-c.done:
+			return
 		}
 	}
 }
