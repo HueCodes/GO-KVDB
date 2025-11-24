@@ -229,10 +229,6 @@ Not suitable for:
 - Distributed caching across multiple nodes
 - Multi-gigabyte datasets without compression
 
-## Thread Safety
-
-All operations are thread-safe and designed for high concurrency. The cache has been tested with the Go race detector and handles unlimited concurrent goroutines.
-
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
