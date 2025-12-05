@@ -1,3 +1,8 @@
+// Package kvcache provides a high-performance, thread-safe in-memory key-value cache
+// with TTL support, LRU eviction, and 256-way sharding for minimal lock contention.
+//
+// The cache uses sync.Pool for zero-allocation operation and provides built-in
+// metrics tracking for hits, misses, and evictions.
 package kvcache
 
 import (
