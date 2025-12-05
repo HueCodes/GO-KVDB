@@ -1,3 +1,3 @@
-module kv-db-go
+module github.com/HueCodes/Fast-Cache
 
-go 1.25.1
+go 1.21

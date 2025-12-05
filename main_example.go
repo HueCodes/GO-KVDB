@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"kv-db-go/kvcache"
+	"github.com/HueCodes/Fast-Cache/kvcache"
 )
 
 func main() {
